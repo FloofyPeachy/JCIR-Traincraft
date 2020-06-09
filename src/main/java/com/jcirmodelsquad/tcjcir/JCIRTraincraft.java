@@ -77,6 +77,7 @@ public class JCIRTraincraft
         importantQuotes.add(new JCIRQuote("psHAWWAWAWAAAASSHHH! its like putting a horseraddish in a blender!", "PeachMaster and Bidahochi"));
         importantQuotes.add(new JCIRQuote("oh my mouth tastes like a body and bath works", "Bidahochi"));
         importantQuotes.add(new JCIRQuote("Alright, this should work, let's test it...I'm assuming it didn't work. ", "PeachMaster"));
+        importantQuotes.add(new JCIRQuote("Ope, my address was there.", "PeachMaster"));
         Random rand = new Random();
         theLogger.info("JCIR-Traincraft starting up!");
         JCIRQuote quoteOfTheDay = importantQuotes.get(rand.nextInt(importantQuotes.size()));
