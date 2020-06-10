@@ -70,7 +70,7 @@ public class DriverlessMetro extends ElectricTrain {
     public boolean obstacleInWay = false;
     public boolean obstacleBrakeDone = false;
     public DriverlessMetro otherSide;
-
+    public boolean isLeading = true;
     public DriverlessMetro(World world) {
         super(world);
     }
@@ -214,7 +214,7 @@ public class DriverlessMetro extends ElectricTrain {
                     currentMode = thing.get("trainMode").getAsInt();
                     System.out.println("Current mode: " + currentMode);
                     if (riddenByEntity != null && riddenByEntity instanceof EntityPlayer) {
-                        ((EntityPlayer)riddenByEntity).addChatMessage(new ChatComponentText("Connected to main server successfully!"));
+                        ((EntityPlayer) riddenByEntity).addChatMessage(new ChatComponentText("Connected to main server successfully!"));
                     }
                 }
             } else if (thing.get("funct").getAsString().equals("startCoupling")) {
@@ -269,7 +269,6 @@ public class DriverlessMetro extends ElectricTrain {
             } else if (rotation < 0 && rotation > -180 || rotation == 0.0) {
                 boundingBox = AxisAlignedBB.getBoundingBox(posX - 10, posY, posZ, posX - 1, posY + 2, posZ);
             }
-            System.out.println(rotation);
             List playerEntityList = worldObj.getEntitiesWithinAABBExcludingEntity(null, boundingBox);
             List animalEntityList = worldObj.getEntitiesWithinAABB(EntityAnimal.class, AxisAlignedBB.getBoundingBox(
                     this.posX - 5, this.posY - 5, this.posZ - 5,
@@ -315,7 +314,6 @@ public class DriverlessMetro extends ElectricTrain {
             if (riddenByEntity != null) {
                 int dir = MathHelper
                         .floor_double((((EntityPlayer) riddenByEntity).rotationYaw * 4F) / 360F + 0.5D) & 3;
-                System.out.println(dir);
             }
 
             //	if (mtcOverridePressed) {currentMode = 0;}
@@ -357,117 +355,75 @@ public class DriverlessMetro extends ElectricTrain {
                 }
                 case 3: {
                     mtcStatus = 1;
-                    if (theNextStation != null) {
-                        double distanceFromStationStop = this.getDistance(this.theNextStation.stationX, this.theNextStation.stationY, this.theNextStation.stationZ);
-                        //Handle normal MTC stuff. Use W-MTC station stops and stuff.. Ooh, speaking of those, set the station stop once the train is close enough.
-                        if (operation == 1) {
-                            if (distanceFromStationStop < this.getSpeed() + 5 && !stationStop) {
-                                this.xStationStop = theNextStation.stationX;
-                                this.yStationStop = theNextStation.stationY;
-                                this.zStationStop = theNextStation.stationZ;
-                                Traincraft.atoSetStopPoint.sendToAllAround(new PacketATOSetStopPoint(this.getEntityId(), xFromStopPoint, yFromStopPoint, zFromStopPoint, xStationStop, yStationStop, zStationStop), new NetworkRegistry.TargetPoint(this.worldObj.provider.dimensionId, this.posX, this.posY, this.posZ, 150.0D));
+                    if (operation == 1) {
+                        double distanceFromNextStation = 0.0;
+                        if (theTimetable.get(0) != null) {
+                            theNextStation = theTimetable.get(0);
+                        }
+                        if (theNextStation != null) {
+                            distanceFromNextStation = this.getDistance(this.theNextStation.stationX, this.theNextStation.stationY, this.theNextStation.stationZ);
+                            //Handle normal MTC stuff. Use W-MTC station stops and stuff.. Ooh, speaking of those, set the station stop once the train is close enough.
+                        }
+
+                        if (distanceFromNextStation < this.getSpeed() + 5 && !stationStop) {
+                            this.xStationStop = theNextStation.stationX;
+                            this.yStationStop = theNextStation.stationY;
+                            this.zStationStop = theNextStation.stationZ;
+                            Traincraft.atoSetStopPoint.sendToAllAround(new PacketATOSetStopPoint(this.getEntityId(), xFromStopPoint, yFromStopPoint, zFromStopPoint, xStationStop, yStationStop, zStationStop), new NetworkRegistry.TargetPoint(this.worldObj.provider.dimensionId, this.posX, this.posY, this.posZ, 150.0D));
+                        }
+
+                        if (theCurrentStation != null && stationStop) {
+                            long timeUntilDeparture = worldObj.getTotalWorldTime() % (theCurrentStation.getDwellTime() * 20);
+                            long timeUntilRTD = (worldObj.getTotalWorldTime() % (theCurrentStation.getDwellTime() - 10 * 20));
+                            System.out.println(timeUntilDeparture);
+                            if (timeUntilRTD == 0) {
+                                //Send "readyToDepart" message to the server.
+                                JsonObject sendingObj = new JsonObject();
+                                sendingObj.addProperty("funct", "readyToDepart");
+                                sendingObj.addProperty("stationName", theCurrentStation.getStationName());
+                                System.out.println("Ready to depart!");
+                                sendMessage(new PDMMessage(this.trainID, serverUUID, sendingObj.toString(), 0));
                             }
-                            DriverlessMetro theThing2 = null;
-                            if (cartLinked1 != null) {
 
-                                if ((cartLinked1).train != null && (cartLinked1).train.getTrains().size() != 0 && (cartLinked1).train.getTrains().size() > 1) {
-
-                                    for (int i = 0; i < (cartLinked1).train.getTrains().size(); i++) {
-                                        EntityRollingStock stock = (cartLinked1).train.getTrains().get(i);
-                                        if (stock instanceof DriverlessMetro && stock.uniqueID != (cartLinked1).uniqueID && stock.uniqueID != this.uniqueID) {
-                                            theThing2 = (DriverlessMetro) stock;
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
-                            System.out.println(stationStop);
-
-                            if (stationStop) {
-                                this.xStationStop = 0.0;
-                                this.yStationStop = 0.0;
-                                this.zStationStop = 0.0;
-                                atoStatus = 0;
-
-                                Traincraft.atoSetStopPoint.sendToAllAround(new PacketATOSetStopPoint(this.getEntityId(), xFromStopPoint, yFromStopPoint, zFromStopPoint, xStationStop, yStationStop, zStationStop), new NetworkRegistry.TargetPoint(this.worldObj.provider.dimensionId, this.posX, this.posY, this.posZ, 150.0D));
-                                long tickWaitTime = worldObj.getTotalWorldTime() % (theNextStation.getDwellTime() * 20);
-                                long readyToDepartTime = (worldObj.getTotalWorldTime() % (theNextStation.getDwellTime() - 10 * 20));
-                                System.out.println(tickWaitTime);
-
-                                if (tickWaitTime == 0) {
-                                    if (theTimetable.size() != 0 && theTimetable.get(0) != null) {
-                                        theNextStation = theTimetable.get(0);
-                                    } else {
-                                        JsonObject sendingObj = new JsonObject();
-                                        sendingObj.addProperty("funct", "error");
-                                        sendingObj.addProperty("details", "invalid timetable on departure");
-                                        sendMessage(new PDMMessage(this.trainID, serverUUID, sendingObj.toString(), 0));
-                                        System.out.println("error?");
-                                    }
-
-                                    if (theNextStation != null && theNextStation.isFinalStop()) {
-                                        System.out.println("Final stop!");
-                                        //Alright, we are at the final stop. Request for a new timetable, and switch to the other driving train.
-                                        //Switchover
-                                        if (theThing2 != null) {
-                                            System.out.println("We found another!");
-                                            theThing2.attemptConnection(serverUUID);
-                                            JsonObject sendingObj = new JsonObject();
-                                            sendingObj.addProperty("funct", "newtimetable_sw");
-                                            sendingObj.addProperty("position", theNextStation.getStationName());
-                                            sendMessage(new PDMMessage(theThing2.trainID, serverUUID, sendingObj.toString(), 0));
-                                            theThing2.currentMode = 3;
-                                            requestedTimetable = true;
-                                            System.out.println("Switching over!");
-                                        }
-
-                                        Traincraft.atoChannel.sendToAllAround(new PacketATO(this.getEntityId(), 0), new NetworkRegistry.TargetPoint(this.worldObj.provider.dimensionId, this.posX, this.posY, this.posZ, 150.0D));
-                                        this.canBePulled = true;
-                                        this.setCanBeAdjusted(true);
-
-                                        //Determine the other train in the consist.
-
-
-                                        //Now, just kinda shut down and do nothing.
-                                        currentMode = 5;
-                                        stationStop = false;
-                                        atoStatus = 0;
-                                    }
+                            if (timeUntilDeparture == 0) {
+                                if (theCurrentStation.isFinalStop()) {
+                                    System.out.println("Final stop!");
+                                    //Do switching over code soon
+                                } else {
+                                    //No? It isn't the final stop? Okay, continue on the route.
                                     System.out.println("Departing!");
 
-
-                                    if (currentMode != 5) {
-                                        System.out.println("depart?");
+                                    if (isLeading) {
                                         stationStop = false;
-                                        JsonObject sendingObj = new JsonObject();
-                                        sendingObj.addProperty("funct", "traindeparting");
-                                        sendMessage(new PDMMessage(this.trainID, serverUUID, sendingObj.toString(), 0));
-                                        stationStopping = false;
+                                        stationStopping = true;
                                         atoStatus = 1;
+                                        JsonObject sendingObj = new JsonObject();
+                                        sendingObj.addProperty("funct", "trainDeparting");
+                                        sendingObj.addProperty("stationName", theCurrentStation.getStationName());
+                                        sendMessage(new PDMMessage(this.trainID, serverUUID, sendingObj.toString(), 0));
+                                        theCurrentStation = null;
                                     }
-                                    theTimetable.remove(theNextStation);
+
+
                                 }
-                                System.out.println(atoStatus);
-                                if (readyToDepartTime == 0) {
-                                    JsonObject sendingObj = new JsonObject();
-                                    sendingObj.addProperty("funct", "readytodepart");
-                                    System.out.println("Ready to depart!");
-                                    sendMessage(new PDMMessage(this.trainID, serverUUID, sendingObj.toString(), 0));
-                                }
-                            } else {
-                                atoStatus = 1;
+
 
                             }
-                            System.out.println(atoStatus);
+                        } else {
+                            atoStatus = 1;
                         }
+
                     }
+
                     // 180 North
                     // 90  West
                     // -90 East
                     // 0 South
                     //Additional safety metehods:
-                    break;
+
                 }
+
+
                 case 5: {
                     //It's at the back of the train. Remain connected to the server, but keep your ATO status set to 0.
                     break;
@@ -528,7 +484,7 @@ public class DriverlessMetro extends ElectricTrain {
                         if (operatingMode == 2) {
                             if (cartLinked1 != null) {
 
-                                if ((cartLinked1).train != null && (cartLinked1).train.getTrains().size() != 0 && ( cartLinked1).train.getTrains().size() > 1) {
+                                if ((cartLinked1).train != null && (cartLinked1).train.getTrains().size() != 0 && (cartLinked1).train.getTrains().size() > 1) {
 
                                     for (int i = 0; i < (cartLinked1).train.getTrains().size(); i++) {
                                         EntityRollingStock stock = (cartLinked1).train.getTrains().get(i);
@@ -564,6 +520,7 @@ public class DriverlessMetro extends ElectricTrain {
         }
 
     }
+
 
     @Override
     public void accel(Integer desiredSpeed) {
@@ -603,4 +560,14 @@ public class DriverlessMetro extends ElectricTrain {
         }
     }
 
+    @Override
+    public void stationStopComplete() {
+        theCurrentStation = theNextStation;
+        theTimetable.remove(theNextStation);
+        atoStatus = 0;
+        this.xStationStop = 0.0;
+        this.yStationStop = 0.0;
+        this.zStationStop = 0.0;
+        Traincraft.atoSetStopPoint.sendToAllAround(new PacketATOSetStopPoint(this.getEntityId(), xFromStopPoint, yFromStopPoint, zFromStopPoint, xStationStop, yStationStop, zStationStop), new NetworkRegistry.TargetPoint(this.worldObj.provider.dimensionId, this.posX, this.posY, this.posZ, 150.0D));
+    }
 }
